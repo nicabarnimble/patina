@@ -1,0 +1,24 @@
+id = "nic80-mother-single-instance"
+title = "Prevent stale PID startup failures and launchd restart storms"
+kind = "build"
+status = "active"
+human_request = "Fix NIC-80 in Patina with test-first ownership-proving single-instance checks, successful duplicate starts, and failure-only throttled launchd retries. Do not alter a running service."
+user_alignment = "Work in an isolated branch from main. Prove the stale live non-Mother PID regression before and after the fix. Run repository gates and review before merge. Leave service installation to the operator."
+allium_anchors = []
+belief_refs = []
+implementation_plan = [
+    "[x] Locate the fault in Patina rather than patina-mct and isolate the worktree.",
+    "[ ] Record a failing regression on the unchanged implementation.",
+    "[ ] Retain exclusive runtime ownership through shutdown and make duplicate starts successful.",
+    "[ ] Generate failure-only launchd restart policy with a 30-second throttle.",
+    "[ ] Review the diff and verify macOS and Linux behavior before merge.",
+]
+proof_plan = [
+    "[ ] A stale pidfile naming a live non-Mother process fails before the fix and passes afterward.",
+    "[ ] Concurrent starts preserve the owner's runtime files; ownership is released after exit.",
+    "[ ] A duplicate CLI start exits zero without altering the existing daemon.",
+    "[ ] Generated launchd policy retries failures only and throttles retries to 30 seconds.",
+    "[ ] Repository verification gates pass and no review findings remain open.",
+]
+closure_evidence = []
+blocked_by = []

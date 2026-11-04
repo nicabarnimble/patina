@@ -123,14 +123,17 @@ mod tests {
     }
 
     #[test]
-    fn live_pid_refuses_startup() {
+    fn stale_live_non_mother_pid_does_not_block_start() {
         let temp = tempfile::tempdir().unwrap();
         let pid_path = temp.path().join("mother.pid");
         let socket_path = temp.path().join("serve.sock");
         std::fs::write(&pid_path, std::process::id().to_string()).unwrap();
 
-        let error = reconcile_pid_state(&pid_path, &socket_path).unwrap_err();
-        assert!(error.to_string().contains("already running"));
-        assert!(pid_path.exists());
+        std::fs::write(&socket_path, "stale").unwrap();
+
+        let _ownership = reconcile_pid_state(&pid_path, &socket_path)
+            .expect("a live test process is not Mother and must not block startup");
+        assert!(!pid_path.exists());
+        assert!(!socket_path.exists());
     }
 }
