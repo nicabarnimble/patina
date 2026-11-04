@@ -24,6 +24,7 @@ closure_evidence = [
   "PR1: cargo fmt --all -- --check, git diff --check and six structural boundary scripts passed. Default exclusion and behavior proof belong to stacked PR2; CI remains a merge gate.",
   "PR2: active rustc dep-info audit passed: 209 sources, 49 excluded legacy boundaries; root lib/bin features only default + duckdb-bundled, Mother features empty. Records, parser/pipeline, capture/index/search, beliefs/models remain compiled.",
   "PR2: default contracts passed: 547 tests, 2 existing ignored, including five real-binary/pipeline boundary fixtures with process and IPC sentinels. Existing session-end export prefix is preserved alongside JSON payloads.",
-  "PR2: default clippy with -D warnings, formatting, whitespace and six structural scripts passed. Full workspace check passed; full build/tests and final CI are still merge gates.",
+  "PR2: default clippy with -D warnings, formatting, whitespace and six structural scripts passed. Full build and workspace clippy passed; cargo test --workspace --features full --lib passed 1086 tests with 2 existing ignored. Shared Mother default store tests passed 67/67.",
+  "PR1 GitHub Lint/Test/Release/linked-issue checks passed. GitHub refused the squash merge because main requires one approving review; no admin bypass was used. PR2 remains stacked until that gate is satisfied.",
 ]
-blocked_by = ["Full compatibility validation and both final PR CI runs must pass before merge."]
+blocked_by = ["PR1 requires an approving GitHub review; no branch-policy bypass is authorized.", "PR2 final CI and main-branch review/integration must be green before merge."]
