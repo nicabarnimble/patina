@@ -3094,11 +3094,23 @@ mod tests {
         assert!(plist.contains("<string>mother</string>"));
         assert!(plist.contains("<string>start</string>"));
         assert!(plist.contains("<key>RunAtLoad</key>"));
-        assert!(plist.contains(
-            "<key>KeepAlive</key>\n  <dict>\n    <key>SuccessfulExit</key>\n    <false/>\n  </dict>"
-        ));
-        assert!(plist.contains("<key>ThrottleInterval</key>\n  <integer>30</integer>"));
         assert!(plist.contains(MOTHER_SUPERVISED_ENV));
+
+        let file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(file.path(), plist).unwrap();
+        let output = Command::new("/usr/bin/plutil")
+            .args(["-convert", "json", "-o", "-"])
+            .arg(file.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "generated plist must parse");
+        let policy: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            policy["KeepAlive"],
+            serde_json::json!({"SuccessfulExit": false})
+        );
+        assert_eq!(policy["ThrottleInterval"], 30);
+        assert_eq!(policy["RunAtLoad"], true);
     }
 
     #[test]

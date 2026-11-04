@@ -8,17 +8,25 @@ allium_anchors = []
 belief_refs = []
 implementation_plan = [
     "[x] Locate the fault in Patina rather than patina-mct and isolate the worktree.",
-    "[ ] Record a failing regression on the unchanged implementation.",
-    "[ ] Retain exclusive runtime ownership through shutdown and make duplicate starts successful.",
-    "[ ] Generate failure-only launchd restart policy with a 30-second throttle.",
+    "[x] Record a failing regression on the unchanged implementation.",
+    "[x] Retain exclusive runtime ownership through shutdown and make duplicate starts successful.",
+    "[x] Generate failure-only launchd restart policy with a 30-second throttle.",
     "[ ] Review the diff and verify macOS and Linux behavior before merge.",
 ]
 proof_plan = [
-    "[ ] A stale pidfile naming a live non-Mother process fails before the fix and passes afterward.",
-    "[ ] Concurrent starts preserve the owner's runtime files; ownership is released after exit.",
-    "[ ] A duplicate CLI start exits zero without altering the existing daemon.",
-    "[ ] Generated launchd policy retries failures only and throttles retries to 30 seconds.",
+    "[x] A stale pidfile naming a live non-Mother process fails before the fix and passes afterward.",
+    "[x] Concurrent starts preserve the owner's runtime files; ownership is released after exit.",
+    "[x] A duplicate CLI start exits zero without altering the existing daemon.",
+    "[x] Generated launchd policy retries failures only and throttles retries to 30 seconds.",
     "[ ] Repository verification gates pass and no review findings remain open.",
 ]
-closure_evidence = []
+closure_evidence = [
+    "The identical tests/mother_single_instance.rs fails on origin/main d8f90270 with exit 1 and the reported already-running error, then passes on the branch. The live non-Mother PID belongs to the test process.",
+    "The CLI test verifies health, duplicate exit zero under a supervisor marker, unchanged owner PID and socket inode, and restart after SIGKILL. All state is temporary and only test-owned child processes are killed.",
+    "All eight daemon_lifecycle tests pass. They cover retained ownership, missing or malformed PID metadata, private-directory checks, non-socket and symlink refusal, failed publication cleanup, and legacy health handshakes.",
+    "Repository pre-push checks pass, including structural policy checks, workspace clippy with -D warnings, and workspace library tests. Formatting and the macOS launchd generator test pass.",
+    "CI exposed Allium generator drift. Regenerated four plans with Allium 3.6.1; the only added data is an empty diagnostics list in each plan.",
+    "Three selected cleanup and legacy-handshake mutants were killed. Complexity-only inspection reports maximum CC 8 in daemon_lifecycle.rs; coverage-adjusted CRAP was not measured.",
+    "PR https://github.com/nicabarnimble/patina/pull/141 remains subject to latest-head CI and required GitHub approval. No production service installation or ten-minute production observation has run.",
+]
 blocked_by = []
