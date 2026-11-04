@@ -420,6 +420,66 @@ fn local_capture_and_search_ignore_remote_environment() {
         .query_row("SELECT COUNT(*) FROM commits", [], |row| row.get(0))
         .unwrap();
     assert_eq!(count, 1);
+
+    // Positive local cross-repository retrieval uses the existing cache/registry
+    // contract, not a Mother endpoint. The reference fixture has the same fixed DB.
+    let reference = fixture.state.join("cache/repos/reference");
+    fs::create_dir_all(reference.join(".patina/local/data")).unwrap();
+    fs::copy(
+        db.path().unwrap(),
+        reference.join(".patina/local/data/patina.db"),
+    )
+    .unwrap();
+    fs::write(
+        fixture.state.join("registry.yaml"),
+        serde_json::to_vec(&serde_json::json!({
+            "version": 1,
+            "repos": {"reference": {
+                "path": reference, "github": "https://example.invalid/reference",
+                "registered": "2026-01-01T00:00:00Z"
+            }}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let reference_results = fixture.json(&[
+        "assay",
+        "--repo",
+        "reference",
+        "search",
+        "NIC82sentinel",
+        "--json",
+    ]);
+    assert_eq!(
+        reference_results, found,
+        "fixed local and reference search fixtures diverged"
+    );
+
+    // Initialize the ordinary local graph, then seed an explicit relationship.
+    success(&fixture.run(&["scry", "NIC82sentinel", "--all-repos"]));
+    let graph = rusqlite::Connection::open(fixture.state.join("mother/graph.db")).unwrap();
+    for (id, kind, path) in [
+        ("project", patina::mother::NodeType::Project, &fixture.root),
+        ("reference", patina::mother::NodeType::Reference, &reference),
+    ] {
+        graph
+            .execute(
+                "INSERT INTO nodes (id, node_type, path, domains) VALUES (?1, ?2, ?3, '[]')",
+                rusqlite::params![
+                    id,
+                    kind.as_str(),
+                    path.canonicalize().unwrap().to_string_lossy()
+                ],
+            )
+            .unwrap();
+    }
+    graph.execute("INSERT INTO edges (from_node, to_node, edge_type, created) VALUES ('project', 'reference', ?1, '2026-01-01T00:00:00Z')",
+        [patina::mother::EdgeType::Uses.as_str()]).unwrap();
+    let routed = fixture.run(&["scry", "NIC82sentinel", "--all-repos"]);
+    success(&routed);
+    let routed_text = String::from_utf8_lossy(&routed.stdout);
+    assert!(routed_text.contains("Related repos: reference"));
+    assert!(routed_text.contains("Searching reference"));
     fixture.assert_no_runtime_effects();
 }
 
