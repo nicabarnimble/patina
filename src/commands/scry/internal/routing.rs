@@ -15,6 +15,7 @@ use super::logging::{log_scry_query_with_routing, EdgeInfo, RoutedResult, Routin
 use super::search::scry_text;
 
 /// Execute scry via mother daemon
+#[cfg(feature = "legacy-runtime")]
 pub fn execute_via_mother(query: Option<&str>, options: &ScryOptions) -> Result<()> {
     let address = mother::get_address().unwrap_or_else(|| "unknown".to_string());
     println!("🔮 Scry - Querying mother at {}\n", address);

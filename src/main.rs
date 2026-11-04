@@ -3,11 +3,19 @@
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
+#[cfg(feature = "legacy-runtime")]
 mod commands;
+// Reuse the public knowledge facade instead of recompiling it inside the thin binary.
+#[cfg(not(feature = "legacy-runtime"))]
+use patina::commands;
+#[cfg(not(feature = "legacy-runtime"))]
+mod disabled;
 mod main_dispatch;
+#[cfg(feature = "legacy-runtime")]
 mod preflight;
+#[cfg(feature = "legacy-runtime")]
 mod retrieval;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-runtime"))]
 mod test_support;
 
 // ============================================================================
@@ -72,6 +80,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[cfg(not(feature = "legacy-runtime"))]
+    #[command(flatten)]
+    Disabled(disabled::Commands),
     /// Initialize a new project skeleton, then prepare Patina AI with `patina ai setup`
     Init {
         /// Project name or "." for current directory
@@ -110,6 +121,7 @@ enum Commands {
     },
 
     /// Check project health and environment
+    #[cfg(feature = "legacy-runtime")]
     Doctor {
         /// Output results as JSON
         #[arg(short, long)]
@@ -118,6 +130,7 @@ enum Commands {
 
     /// Manage WASM children
     #[command(name = "child", visible_alias = "plugin")]
+    #[cfg(feature = "legacy-runtime")]
     Child {
         #[command(subcommand)]
         command: ChildCommands,
@@ -314,6 +327,7 @@ enum Commands {
     ///
     /// Create, list, and manage connections to external services like GitHub.
     /// Connections store credentials in the vault and are consumed by the broker.
+    #[cfg(feature = "legacy-runtime")]
     Connect {
         #[command(subcommand)]
         command: Option<commands::connect::ConnectCommands>,
@@ -323,6 +337,7 @@ enum Commands {
     ///
     /// Create and list data lakes. Lakes are DuckDB + DuckLake storage
     /// backed by autonomous child processes.
+    #[cfg(feature = "legacy-runtime")]
     Lake {
         #[command(subcommand)]
         command: Option<commands::lake::LakeCommands>,
@@ -332,18 +347,21 @@ enum Commands {
     ///
     /// Mother is the always-running daemon that provides hot model caching,
     /// cross-project knowledge access, secrets caching, and graph-based routing.
+    #[cfg(feature = "legacy-runtime")]
     Mother {
         #[command(subcommand)]
         command: Option<commands::mother::MotherCommands>,
     },
 
     /// Manage composed pando products
+    #[cfg(feature = "legacy-runtime")]
     Pando {
         #[command(subcommand)]
         command: Option<commands::pando::PandoCommands>,
     },
 
     /// Secure secret management with age encryption
+    #[cfg(feature = "legacy-runtime")]
     Secrets {
         #[command(subcommand)]
         command: Option<commands::secrets::SecretsCommands>,
@@ -377,6 +395,7 @@ enum Commands {
 
     /// Start the Mother daemon (DEPRECATED — use `patina mother start`)
     #[command(hide = true)]
+    #[cfg(feature = "legacy-runtime")]
     Serve {
         /// Bind to TCP host (enables network access; default: UDS only)
         #[arg(long)]
@@ -393,6 +412,7 @@ enum Commands {
 
     /// Manage AI interfaces (list, add, remove, refresh, doctor)
     #[command(alias = "adapter")]
+    #[cfg(feature = "legacy-runtime")]
     Interface {
         #[command(subcommand)]
         command: Option<InterfaceManageCommands>,
@@ -457,12 +477,14 @@ enum Commands {
     },
 
     /// Manage Slate work transactions
+    #[cfg(feature = "legacy-runtime")]
     Slate {
         #[command(subcommand)]
         command: commands::slate::SlateCommands,
     },
 
     /// Manage spec lifecycle (archive completed specs)
+    #[cfg(feature = "legacy-runtime")]
     Spec {
         /// Target Patina project path or project UID for cross-project spec operations
         #[arg(long)]
@@ -883,6 +905,7 @@ enum PersonaCommands {
 }
 
 // CLI subcommand enums are defined in their respective command modules
+#[cfg(feature = "legacy-runtime")]
 use commands::interface::InterfaceManageCommands;
 use commands::repo::RepoCommands;
 
@@ -965,6 +988,7 @@ enum SetupCommands {
 }
 
 #[derive(Subcommand)]
+#[cfg(feature = "legacy-runtime")]
 enum ChildCommands {
     /// List installed children
     List,
@@ -1055,21 +1079,44 @@ enum ChildCommands {
 }
 
 fn main() -> Result<()> {
-    // Run migrations early (before any command)
-    patina::migration::migrate_if_needed();
-    commands::repo::migrate_registry_paths();
-
-    // Preflight: clean up stale processes before normal operation
-    preflight::ensure_clean_state();
-
+    // Compatibility builds retain the original startup sequence.
+    #[cfg(feature = "legacy-runtime")]
+    {
+        patina::migration::migrate_if_needed();
+        commands::repo::migrate_registry_paths();
+        preflight::ensure_clean_state();
+    }
     let cli = Cli::parse();
+    #[cfg(not(feature = "legacy-runtime"))]
+    {
+        use clap::CommandFactory;
+        if let Some(Commands::Disabled(command)) = &cli.command {
+            anyhow::bail!(
+                "{} requires a Patina build with --features full; no runtime was started",
+                command.name()
+            );
+        }
+        if cli.command.is_none() {
+            Cli::command().print_help()?;
+            println!("\n\nGuest launching is owned by PiMux.");
+            return Ok(());
+        }
+    }
 
+    // Default knowledge migrations run only after help/disabled-command handling.
+    #[cfg(not(feature = "legacy-runtime"))]
+    {
+        patina::migration::migrate_if_needed();
+        commands::repo::migrate_registry_paths();
+    }
+    #[cfg(feature = "legacy-runtime")]
     if !matches!(cli.command.as_ref(), Some(Commands::Mother { .. })) {
         commands::pando::init_registry_best_effort();
     }
 
     match cli.command {
         // Launcher mode: no subcommand means launch interface
+        #[cfg(feature = "legacy-runtime")]
         None => {
             let options = commands::launch::LaunchOptions {
                 path: None,
@@ -1079,6 +1126,9 @@ fn main() -> Result<()> {
             };
             commands::launch::execute(options)?;
         }
+
+        #[cfg(not(feature = "legacy-runtime"))]
+        None | Some(Commands::Disabled(_)) => unreachable!("handled before migrations"),
 
         Some(Commands::Init {
             name,
@@ -1167,9 +1217,11 @@ fn main() -> Result<()> {
         Some(Commands::Persona { command }) => {
             main_dispatch::scrape::dispatch_persona(command)?;
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Doctor { json }) => {
             commands::doctor::execute_cli(json)?;
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Child { command }) => {
             main_dispatch::child::dispatch(command)?;
         }
@@ -1180,12 +1232,17 @@ fn main() -> Result<()> {
             sparse,
         }) => commands::repo::execute_cli(command, url, contrib, sparse)?,
         Some(Commands::Model { command }) => commands::model::execute_cli(command)?,
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Connect { command }) => commands::connect::execute_cli(command)?,
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Lake { command }) => commands::lake::execute_cli(command)?,
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Mother { command }) => {
             main_dispatch::mother::dispatch_mother(command, cli.interface)?;
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Pando { command }) => commands::pando::execute_cli(command)?,
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Secrets { command, flags }) => {
             commands::secrets::execute_cli(command, flags)?
         }
@@ -1211,7 +1268,7 @@ fn main() -> Result<()> {
             }
         }
         Some(Commands::Ai { command }) => {
-            commands::ai::execute(command)?;
+            commands::ai::execute_with_interface(command, cli.interface.as_deref())?;
         }
         Some(Commands::Hook { command }) => {
             commands::hook::execute(command)?;
@@ -1225,9 +1282,11 @@ fn main() -> Result<()> {
                 commands::setup::execute_grammars(options)?;
             }
         },
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Slate { command }) => {
             commands::slate::execute(command)?;
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Spec { project, command }) => {
             main_dispatch::spec::dispatch_spec(project, command)?;
         }
@@ -1269,10 +1328,12 @@ fn main() -> Result<()> {
                 commands::schema::build(&name, types, migrations, embeddings)?;
             }
         },
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Serve { host, port, mcp }) => {
             // MCP server path has been retired; legacy `serve --mcp` is rejected in dispatch.
             main_dispatch::mother::dispatch_serve(host, port, mcp)?;
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(Commands::Interface { command }) => commands::interface::execute(command)?,
         Some(Commands::Report { output, repo, json }) => {
             let options = commands::report::ReportOptions { output, repo, json };

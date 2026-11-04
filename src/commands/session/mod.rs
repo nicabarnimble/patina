@@ -10,6 +10,9 @@
 
 mod internal;
 
+#[cfg(not(feature = "legacy-runtime"))]
+pub(crate) use internal::resolve_interface;
+
 pub(crate) use internal::{
     end_live_session_value, note_live_session, resolve_live_session, start_session_value,
     update_live_session_value, SessionStartRequest,

@@ -3,6 +3,7 @@ use serde_json::json;
 use std::fs;
 use std::path::Path;
 
+#[cfg(feature = "legacy-runtime")]
 use super::legacy_session::{resolve_native_session_interface, teardown_tmux_lane_best_effort};
 use patina::git;
 use patina::session::{self, ArchiveSessionRequest, SessionManager};
@@ -56,7 +57,7 @@ pub fn list(json_output: bool) -> Result<()> {
 
 pub fn session(command: AiSessionCommands) -> Result<()> {
     match command {
-        AiSessionCommands::New { title, json } => new_session(&title, json),
+        AiSessionCommands::New { title, json } => new_session(&title, json, None),
         AiSessionCommands::Update {
             session,
             title,
@@ -118,6 +119,7 @@ pub fn end(
     stage_session_artifacts(&project_root, &handle.artifact_path)?;
     let commit_message =
         maybe_commit_session_artifacts(&handle.file_id, &handle.interface_name, auto_commit)?;
+    #[cfg(feature = "legacy-runtime")]
     teardown_tmux_lane_best_effort(&project_root, &handle.interface_name, Some(&handle.file_id));
 
     if json_output {
@@ -142,9 +144,9 @@ pub fn end(
     Ok(())
 }
 
-fn new_session(title: &str, json_output: bool) -> Result<()> {
+pub(super) fn new_session(title: &str, json_output: bool, interface: Option<&str>) -> Result<()> {
     let project_root = SessionManager::find_project_root()?;
-    let interface_name = resolve_native_session_interface(&project_root, None)?;
+    let interface_name = resolve_native_session_interface(&project_root, interface)?;
     let result = crate::commands::session::start_session_value(
         &project_root,
         crate::commands::session::SessionStartRequest::native(title, &interface_name),
@@ -226,6 +228,7 @@ fn end_session(
     stage_session_artifacts(&project_root, &artifact_path)?;
     let commit_message =
         maybe_commit_session_artifacts(&result.session_id, &result.interface, auto_commit)?;
+    #[cfg(feature = "legacy-runtime")]
     teardown_tmux_lane_best_effort(&project_root, &result.interface, Some(&result.session_id));
 
     if json_output {
@@ -306,6 +309,17 @@ fn record_ai_session_ended(
         &payload.to_string(),
     )?;
     Ok(())
+}
+
+#[cfg(not(feature = "legacy-runtime"))]
+fn resolve_native_session_interface(
+    project_root: &Path,
+    interface: Option<&str>,
+) -> Result<String> {
+    let selected = interface.map(str::to_owned).or_else(current_interface_name);
+    let name = crate::commands::session::resolve_interface(selected.as_deref(), project_root)?;
+    // Catalog lookup is passive: no executable detection, projection, IPC or tmux.
+    Ok(patina::interface::interface_bundle(&name)?.name.clone())
 }
 
 pub(super) fn current_interface_name() -> Option<String> {

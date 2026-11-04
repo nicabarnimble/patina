@@ -25,13 +25,18 @@
 //! let related = graph.get_related("patina", &[EdgeType::Uses, EdgeType::TestsWith])?;
 //! ```
 
+#[cfg(feature = "legacy-runtime")]
 pub mod broker;
+#[cfg(feature = "legacy-runtime")]
 pub mod doctor_runtime;
+#[cfg(feature = "legacy-runtime")]
 mod internal;
+#[cfg(feature = "legacy-runtime")]
 pub mod skills;
 
 // Bridge module: state logic now lives in the mother crate.
 // Re-export so existing `crate::mother::state::*` paths continue to compile.
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod state {
     pub use mother_crate::state::*;
 }
@@ -41,6 +46,7 @@ pub use crate::child::runtime::{
     CallCorrelation, Child, ChildCallRequest, ChildHealth, ChildRequest, ChildResponse, MotherHost,
     PendingEvent, TaskIntent, TaskIntentKind, Toy,
 };
+#[cfg(feature = "legacy-runtime")]
 pub use mother_crate::child_registry::{
     ChildRegistryProvider, ChildRegistrySyncEngine, DiscoveredChildRelease,
     GitHubChildRegistryProvider, SourceSyncReport,
@@ -61,5 +67,7 @@ pub use crate::beliefs::{
     WeightLearningReport, DEFAULT_ALPHA, MIN_SAMPLES, WEIGHT_MAX, WEIGHT_MIN,
 };
 
+#[cfg(feature = "legacy-runtime")]
 mod client;
+#[cfg(feature = "legacy-runtime")]
 pub use client::*;

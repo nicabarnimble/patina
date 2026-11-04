@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+#[cfg(feature = "legacy-runtime")]
 pub mod git;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
