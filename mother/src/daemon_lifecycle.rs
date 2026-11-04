@@ -79,42 +79,12 @@ pub fn reconcile_pid_state(pid_path: &Path, socket_path: &Path) -> Result<Option
         .parent()
         .context("PID path has no runtime directory")?;
     crate::socket::ensure_run_dir(run_dir)?;
-    let lock_path = pid_path.with_extension("lock");
-    let lock = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .mode(0o600)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(&lock_path)
-        .with_context(|| format!("opening Mother lock {}", lock_path.display()))?;
-    anyhow::ensure!(
-        lock.metadata()?.is_file(),
-        "Mother lock is not a regular file"
-    );
-    match lock.try_lock() {
-        Ok(()) => {}
-        Err(TryLockError::WouldBlock) => return Ok(None),
-        Err(TryLockError::Error(error)) => return Err(error).context("locking Mother runtime"),
-    }
+    let Some(lock) = try_runtime_lock(&pid_path.with_extension("lock"))? else {
+        return Ok(None);
+    };
 
-    // Older Mothers have no lock. A connected but unresponsive socket is not stale.
-    if socket_path.exists() {
-        match crate::lifecycle::query_health(socket_path) {
-            Ok(_) => return Ok(None),
-            Err(error) => {
-                let stale = error.downcast_ref::<std::io::Error>().is_some_and(|error| {
-                    matches!(
-                        error.kind(),
-                        std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
-                    )
-                });
-                if !stale {
-                    return Err(error).context("existing Mother socket could not be verified");
-                }
-            }
-        }
+    if legacy_mother_is_running(socket_path)? {
+        return Ok(None);
     }
     crate::socket::cleanup_stale_socket(socket_path)?;
     remove_file_if_exists(pid_path)
@@ -125,6 +95,41 @@ pub fn reconcile_pid_state(pid_path: &Path, socket_path: &Path) -> Result<Option
         socket_path: socket_path.to_path_buf(),
         published: false,
     }))
+}
+
+fn try_runtime_lock(lock_path: &Path) -> Result<Option<File>> {
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(lock_path)
+        .with_context(|| format!("opening Mother lock {}", lock_path.display()))?;
+    anyhow::ensure!(
+        lock.metadata()?.is_file(),
+        "Mother lock is not a regular file"
+    );
+    match lock.try_lock() {
+        Ok(()) => Ok(Some(lock)),
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Error(error)) => Err(error).context("locking Mother runtime"),
+    }
+}
+
+fn legacy_mother_is_running(socket_path: &Path) -> Result<bool> {
+    // Older Mothers have no lock. A connected but unresponsive socket is not stale.
+    match crate::lifecycle::query_health(socket_path) {
+        Ok(_) => Ok(true),
+        Err(error) => match error
+            .downcast_ref::<std::io::Error>()
+            .map(|error| error.kind())
+        {
+            Some(std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused) => Ok(false),
+            _ => Err(error).context("existing Mother socket could not be verified"),
+        },
+    }
 }
 
 pub fn register_signal_handlers() {
