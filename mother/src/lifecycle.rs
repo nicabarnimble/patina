@@ -185,18 +185,34 @@ pub fn stop_daemon(pid_path: &Path, socket_path: &Path) -> Result<StopResult> {
     Ok(StopResult::TimedOut)
 }
 
-fn query_health(socket_path: &Path) -> Result<HealthInfo> {
+pub(crate) fn query_health(socket_path: &Path) -> Result<HealthInfo> {
     let mut stream = UnixStream::connect(socket_path)
         .with_context(|| format!("connecting to {}", socket_path.display()))?;
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
 
     let request = "GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
     stream.write_all(request.as_bytes())?;
 
     let mut response = Vec::new();
-    stream.read_to_end(&mut response)?;
+    stream.take(64 * 1024 + 1).read_to_end(&mut response)?;
+    anyhow::ensure!(
+        response.len() <= 64 * 1024,
+        "Mother health response is too large"
+    );
     let response_str = String::from_utf8_lossy(&response);
-    let body_start = response_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+    let status = response_str.lines().next().unwrap_or_default();
+    anyhow::ensure!(
+        matches!(
+            status.split_whitespace().next(),
+            Some("HTTP/1.0" | "HTTP/1.1")
+        ) && status.split_whitespace().nth(1) == Some("200"),
+        "Mother health response was not HTTP 200"
+    );
+    let body_start = response_str
+        .find("\r\n\r\n")
+        .context("missing HTTP headers")?
+        + 4;
     let body = &response_str[body_start..];
 
     serde_json::from_str(body).with_context(|| "parsing health response")

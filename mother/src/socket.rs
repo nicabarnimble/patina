@@ -22,7 +22,7 @@ pub fn cleanup_socket(socket_path: &Path) {
     }
 }
 
-fn ensure_run_dir(run_dir: &Path) -> Result<()> {
+pub(crate) fn ensure_run_dir(run_dir: &Path) -> Result<()> {
     if !run_dir.exists() {
         std::fs::create_dir_all(run_dir)
             .with_context(|| format!("creating runtime directory {}", run_dir.display()))?;
@@ -44,7 +44,7 @@ fn ensure_run_dir(run_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn cleanup_stale_socket(socket_path: &Path) -> Result<()> {
+pub(crate) fn cleanup_stale_socket(socket_path: &Path) -> Result<()> {
     if !socket_path.exists() {
         return Ok(());
     }
