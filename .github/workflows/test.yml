@@ -144,6 +144,13 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Keep the full feature set, but avoid multi-GB C++ debug archives/incremental caches.
+      CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
     steps:
     - uses: actions/checkout@v4
       with:
@@ -188,10 +195,10 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+        # Do not restore the pre-sever debug-heavy target alongside a fresh full build.
+        key: ${{ runner.os }}-cargo-full-nic82-v1-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-test-
-          ${{ runner.os }}-cargo-
+          ${{ runner.os }}-cargo-full-nic82-v1-
 
     - name: Get active model name
       id: active-model
