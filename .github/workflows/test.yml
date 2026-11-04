@@ -260,7 +260,8 @@ jobs:
       run: cargo nextest run --features full --test wasm_integration --profile ci
 
     - name: Run typed composition seam locks
-      if: steps.changes.outputs.wasm == 'true' || github.event_name == 'workflow_dispatch'
+      # Like the WASM lane, always run on PRs; shallow merge-base detection can be empty.
+      if: steps.changes.outputs.wasm == 'true' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       run: cargo nextest run --features full --test composition_spike --test interface_lock --profile ci
 
   # ==================================================================
