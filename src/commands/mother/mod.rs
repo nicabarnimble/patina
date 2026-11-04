@@ -847,7 +847,6 @@ pub fn execute_cli(command: Option<MotherCommands>, interface: Option<String>) -
             if mcp {
                 bail!("MCP server path has been retired; start daemon without --mcp")
             } else {
-                enforce_start_conflict_guard()?;
                 let options = DaemonOptions {
                     host,
                     port,
@@ -1431,7 +1430,7 @@ fn xml_escape(value: &str) -> String {
 fn render_launchd_plist(exe_path: &Path) -> String {
     let exe = xml_escape(&exe_path.display().to_string());
     format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>{}</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>{}</string>\n    <string>mother</string>\n    <string>start</string>\n  </array>\n  <key>EnvironmentVariables</key>\n  <dict>\n    <key>{}</key>\n    <string>1</string>\n  </dict>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>KeepAlive</key>\n  <true/>\n</dict>\n</plist>\n",
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>{}</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>{}</string>\n    <string>mother</string>\n    <string>start</string>\n  </array>\n  <key>EnvironmentVariables</key>\n  <dict>\n    <key>{}</key>\n    <string>1</string>\n  </dict>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>KeepAlive</key>\n  <dict>\n    <key>SuccessfulExit</key>\n    <false/>\n  </dict>\n  <key>ThrottleInterval</key>\n  <integer>30</integer>\n</dict>\n</plist>\n",
         MOTHER_LAUNCHD_LABEL, exe, MOTHER_SUPERVISED_ENV
     )
 }
@@ -3095,8 +3094,23 @@ mod tests {
         assert!(plist.contains("<string>mother</string>"));
         assert!(plist.contains("<string>start</string>"));
         assert!(plist.contains("<key>RunAtLoad</key>"));
-        assert!(plist.contains("<key>KeepAlive</key>"));
         assert!(plist.contains(MOTHER_SUPERVISED_ENV));
+
+        let file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(file.path(), plist).unwrap();
+        let output = Command::new("/usr/bin/plutil")
+            .args(["-convert", "json", "-o", "-"])
+            .arg(file.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "generated plist must parse");
+        let policy: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            policy["KeepAlive"],
+            serde_json::json!({"SuccessfulExit": false})
+        );
+        assert_eq!(policy["ThrottleInterval"], 30);
+        assert_eq!(policy["RunAtLoad"], true);
     }
 
     #[test]

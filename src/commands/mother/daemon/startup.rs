@@ -385,6 +385,21 @@ impl Default for DaemonOptions {
 
 /// Run the mother daemon server
 pub fn run_server(options: DaemonOptions) -> Result<()> {
+    let ownership = if options.host.is_none() {
+        match mother_crate::daemon_lifecycle::reconcile_pid_state(
+            &patina::paths::serve::pid_path(),
+            &patina::paths::serve::socket_path(),
+        )? {
+            Some(ownership) => Some(ownership),
+            None => {
+                println!("Mother daemon already running or starting");
+                return Ok(());
+            }
+        }
+    } else {
+        None
+    };
+    super::super::enforce_start_conflict_guard()?;
     mother_crate::daemon_bootstrap_config::ensure_logging_initialized()?;
 
     // Build control-plane state first; child warmup runs in background in full profile.
@@ -440,7 +455,7 @@ pub fn run_server(options: DaemonOptions) -> Result<()> {
         };
         return run_startup_stage("transport_bootstrap", &startup_store, || {
             mother_crate::daemon_bootstrap_config::start(
-                config.clone(),
+                config,
                 mother_crate::daemon_bootstrap_config::DaemonBootstrapRuntime {
                     registry: Arc::clone(&state.registry),
                     router: Arc::clone(&router),
@@ -476,9 +491,7 @@ pub fn run_server(options: DaemonOptions) -> Result<()> {
     }
     let config = mother_crate::daemon_bootstrap_config::DaemonBootstrapConfig {
         transport: mother_crate::daemon_bootstrap_config::TransportMode::UdsHttp {
-            run_dir: patina::paths::serve::run_dir(),
-            socket_path,
-            pid_path: patina::paths::serve::pid_path(),
+            ownership: ownership.expect("UDS startup owns the runtime"),
         },
         max_connections: mother_crate::daemon_bootstrap_config::DEFAULT_MAX_CONNECTIONS,
         wal_checkpoint_interval_secs:
@@ -486,7 +499,7 @@ pub fn run_server(options: DaemonOptions) -> Result<()> {
     };
     run_startup_stage("transport_bootstrap", &startup_store, || {
         mother_crate::daemon_bootstrap_config::start(
-            config.clone(),
+            config,
             mother_crate::daemon_bootstrap_config::DaemonBootstrapRuntime {
                 registry: Arc::clone(&state.registry),
                 router: Arc::clone(&router),

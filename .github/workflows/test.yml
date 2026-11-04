@@ -159,6 +159,9 @@ jobs:
     - name: Run unit tests
       run: cargo nextest run --workspace --lib --profile ci
 
+    - name: Check Mother single-instance lifecycle
+      run: cargo nextest run --test mother_single_instance --profile ci
+
     - name: Check DuckLake wasm parity
       run: bash resources/scripts/check-ducklake-parity.sh
 

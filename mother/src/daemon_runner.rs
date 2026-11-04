@@ -21,7 +21,6 @@ pub struct TcpServerLaunch {
 
 pub struct UdsServerLaunch {
     pub listener: std::os::unix::net::UnixListener,
-    pub pid_path: PathBuf,
     pub socket_path: PathBuf,
     pub registry: Arc<ChildRegistry>,
     pub router: Arc<Router>,
@@ -61,16 +60,6 @@ fn checkpoint_all_project_databases_truncate() -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-fn remove_runtime_file(path: &std::path::Path) {
-    match std::fs::remove_file(path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            tracing::warn!(path = %path.display(), %error, "failed to remove runtime file")
-        }
-    }
 }
 
 pub fn run_tcp_server(launch: TcpServerLaunch) -> anyhow::Result<()> {
@@ -160,8 +149,6 @@ pub fn run_uds_server(launch: UdsServerLaunch) -> anyhow::Result<()> {
 
     checkpoint_all_project_databases_truncate()?;
     heartbeat.stop_and_join();
-    remove_runtime_file(&launch.pid_path);
-    remove_runtime_file(&launch.socket_path);
     tracing::info!("shutdown complete");
     Ok(())
 }
