@@ -14,12 +14,7 @@ use super::{
     CredentialMapping, GrantedCapabilities, InjectionLocation, QueryDispatchFn, QueryScope,
 };
 
-// =========================================================================
-// Log host support
-// =========================================================================
-
-/// Shared log implementation — formats and emits child log messages.
-pub(super) use super::passive::log;
+// Parser logging lives in passive.rs and does not depend on host effects.
 
 // =========================================================================
 // Layer host support
