@@ -80,6 +80,10 @@ forbidden = (
     "mother/src/registry.rs", "mother/src/secrets_authority_", "mother/src/services/",
     "mother/src/socket.rs", "mother/src/toys/git.rs",
 )
+# A module may be a file or directory; also ensure compatibility source was not deleted.
+forbidden = tuple(boundary.rstrip("/") for boundary in forbidden)
+for boundary in forbidden:
+    assert any(root.glob(boundary + "*")), f"preserved legacy source missing: {boundary}"
 leaked = sorted(path for path in sources if path.startswith(forbidden))
 assert not leaked, f"legacy implementation compiled by default: {leaked}"
 print(f"PASS: {len(sources)} active Rust source inputs; {len(forbidden)} legacy boundaries excluded")
