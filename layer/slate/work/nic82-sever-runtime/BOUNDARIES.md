@@ -75,8 +75,9 @@ must explicitly select a full binary. No MCT SDK pin changes are part of this wo
 2. `tests/default_runtime_boundary.rs` executes the real default binary in
    disposable projects/HOME/state with forbidden-process sentinels and an IPC
    sentinel. It checks help/disabled surfaces, identity precedence, native session
-   JSON/IDs/tags/notes/commits and end alias, capture/FTS search and the local scry
-   missing-index diagnostic, grammar discovery, and actual WASM pipeline execution.
+   JSON/IDs/tags/notes/commits and end alias, capture/FTS search, identical fixed
+   local/reference search results, explicit local related-repo graph routing,
+   scry's no-index behavior, grammar discovery, and actual WASM pipeline execution.
    It does not claim a new semantic-ranking benchmark without model/index fixtures.
 3. Full CI builds with `--features full`, enumerates named daemon/Child/launcher
    tests to prevent zero-test false greens, and runs existing workspace, lifecycle,
