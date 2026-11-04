@@ -11,7 +11,7 @@ mod internal;
 use super::InterfaceProvider;
 
 // Export version for version management
-pub const GEMINI_INTERFACE_VERSION: &str = "0.1.0";
+pub use crate::interface::GEMINI_INTERFACE_VERSION;
 
 /// Gemini interface implementation (stub)
 pub struct GeminiInterface;

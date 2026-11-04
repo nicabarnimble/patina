@@ -1,4 +1,6 @@
 mod internal;
+mod metadata;
+pub use metadata::{CLAUDE_INTERFACE_VERSION, GEMINI_INTERFACE_VERSION};
 pub mod launch;
 pub mod runtime;
 
@@ -26,8 +28,6 @@ pub use internal::surface::{
     set_project_default_interface, AiProjectConfigResult, AiSurfaceRequest, AiSurfaceResult,
     PreparedInterface,
 };
-pub use runtime::claude::CLAUDE_INTERFACE_VERSION;
-pub use runtime::gemini::GEMINI_INTERFACE_VERSION;
 pub use runtime::templates;
 
 #[derive(Debug, Clone)]
