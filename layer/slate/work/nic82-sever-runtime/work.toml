@@ -8,7 +8,7 @@ allium_anchors = []
 belief_refs = ["core-verbs-standalone-mother-additive"]
 core_refs = ["layer/core/patina-identity.md", "layer/core/dependable-rust.md"]
 implementation_plan = [
-  "[ ] PR 1: separate parser logging, runtime client facade, and session/interface metadata dependencies without changing full behavior.",
+  "[x] PR 1: separate parser logging, runtime client facade, and session/interface metadata dependencies without changing full behavior.",
   "[ ] PR 2: gate legacy hosting/launching in both crates; keep local data/parser/session functionality; add default/full CI.",
 ]
 proof_plan = [
@@ -17,5 +17,10 @@ proof_plan = [
   "[ ] Full build and existing test/structural/CI suites pass without removing tests.",
   "[ ] Both PR ledgers name exact checks and limitations, and all work remains isolated from production.",
 ]
-closure_evidence = ["No usable child-owned Slate skill/package is tracked in this baseline; the active work record is authored directly rather than invoking the installed child or touching ~/.patina."]
+closure_evidence = [
+  "No usable child-owned Slate skill/package is tracked in this baseline; the active work record is authored directly rather than invoking the installed child or touching ~/.patina.",
+  "PR1: cargo build --locked --features full and cargo clippy --workspace -- -D warnings passed in an independent disposable test clone, isolated HOME/PATINA_HOME/target and sandbox denying production state and main-checkout writes.",
+  "PR1: cargo test --workspace --lib passed: 1086 tests, 2 pre-existing ignored. Initial worktree run had 3 tag-write failures blocked by sandbox; independent clone rerun passed without relaxing isolation.",
+  "PR1: cargo fmt --all -- --check, git diff --check and six structural boundary scripts passed. Default exclusion and behavior proof belong to stacked PR2; CI remains a merge gate.",
+]
 blocked_by = []
