@@ -1,8 +1,13 @@
+#[cfg(not(feature = "legacy-runtime"))]
+mod disabled;
 mod internal;
+#[cfg(feature = "legacy-runtime")]
 mod legacy_session;
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod surface;
 
 use anyhow::Result;
+#[cfg(feature = "legacy-runtime")]
 use clap::Args;
 
 #[derive(Debug, Clone, clap::Subcommand)]
@@ -57,6 +62,7 @@ pub enum AiSessionCommands {
     },
 }
 
+#[cfg(feature = "legacy-runtime")]
 #[derive(Debug, Clone, Args)]
 pub struct AiLaunchArgs {
     #[arg(long)]
@@ -83,7 +89,11 @@ pub struct AiLaunchArgs {
 
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum AiCommands {
+    #[cfg(not(feature = "legacy-runtime"))]
+    #[command(flatten)]
+    Disabled(disabled::Commands),
     /// Deploy the Patina AI bundles for this project
+    #[cfg(feature = "legacy-runtime")]
     Setup {
         #[arg(value_name = "interface", hide = true, conflicts_with = "all")]
         interface: Option<String>,
@@ -100,6 +110,7 @@ pub enum AiCommands {
     },
 
     /// Refresh one bundle or all Patina AI bundles for this project
+    #[cfg(feature = "legacy-runtime")]
     Refresh {
         #[arg(value_name = "interface")]
         interface: Option<String>,
@@ -112,6 +123,7 @@ pub enum AiCommands {
     },
 
     /// Launch Claude Code through the Patina AI interface
+    #[cfg(feature = "legacy-runtime")]
     Claude {
         #[command(flatten)]
         launch: AiLaunchArgs,
@@ -119,18 +131,21 @@ pub enum AiCommands {
 
     /// Launch OpenCode through the Patina AI interface
     #[command(name = "opencode")]
+    #[cfg(feature = "legacy-runtime")]
     OpenCode {
         #[command(flatten)]
         launch: AiLaunchArgs,
     },
 
     /// Launch Gemini CLI through the Patina AI interface
+    #[cfg(feature = "legacy-runtime")]
     Gemini {
         #[command(flatten)]
         launch: AiLaunchArgs,
     },
 
     /// Launch PI through the Patina AI interface
+    #[cfg(feature = "legacy-runtime")]
     Pi {
         #[command(flatten)]
         launch: AiLaunchArgs,
@@ -164,9 +179,31 @@ pub enum AiCommands {
     },
 }
 
+/// The CLI's global interface flag selects a record identity, never a launcher.
+pub fn execute_with_interface(command: Option<AiCommands>, interface: Option<&str>) -> Result<()> {
+    match command {
+        Some(AiCommands::Session {
+            command: AiSessionCommands::New { title, json },
+        }) => internal::new_session(&title, json, interface),
+        other => execute(other),
+    }
+}
+
 pub fn execute(command: Option<AiCommands>) -> Result<()> {
     match command {
+        #[cfg(not(feature = "legacy-runtime"))]
+        Some(AiCommands::Disabled(command)) => anyhow::bail!(
+            "patina ai {} requires --features full; guest launching is owned by PiMux",
+            command.name()
+        ),
+        #[cfg(feature = "legacy-runtime")]
         None => surface::launch_default(),
+        #[cfg(not(feature = "legacy-runtime"))]
+        None => {
+            println!("patina ai session <new|update|note|end|list>\nGuest launching is owned by PiMux; legacy launch/setup requires --features full.");
+            Ok(())
+        }
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::Setup {
             interface,
             path,
@@ -178,6 +215,7 @@ pub fn execute(command: Option<AiCommands>) -> Result<()> {
             force,
             all,
         }),
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::Refresh {
             interface,
             path,
@@ -187,6 +225,7 @@ pub fn execute(command: Option<AiCommands>) -> Result<()> {
             path,
             force,
         }),
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::Claude { launch }) => surface::launch(surface::AiLaunchRequest {
             interface_name: "claude".to_string(),
             title: launch.title,
@@ -198,6 +237,7 @@ pub fn execute(command: Option<AiCommands>) -> Result<()> {
             no_tmux: launch.no_tmux,
             decision_path: Some("direct".to_string()),
         }),
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::OpenCode { launch }) => surface::launch(surface::AiLaunchRequest {
             interface_name: "opencode".to_string(),
             title: launch.title,
@@ -209,6 +249,7 @@ pub fn execute(command: Option<AiCommands>) -> Result<()> {
             no_tmux: launch.no_tmux,
             decision_path: Some("direct".to_string()),
         }),
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::Gemini { launch }) => surface::launch(surface::AiLaunchRequest {
             interface_name: "gemini".to_string(),
             title: launch.title,
@@ -220,6 +261,7 @@ pub fn execute(command: Option<AiCommands>) -> Result<()> {
             no_tmux: launch.no_tmux,
             decision_path: Some("direct".to_string()),
         }),
+        #[cfg(feature = "legacy-runtime")]
         Some(AiCommands::Pi { launch }) => surface::launch(surface::AiLaunchRequest {
             interface_name: "pi".to_string(),
             title: launch.title,
@@ -254,6 +296,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn launch_peer_commands_accept_default_flag() {
         for args in [
             ["patina", "claude", "--default"],
@@ -273,6 +316,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn launch_peer_commands_accept_tmux_flags() {
         for args in [
             ["patina", "claude", "--tmux"],
@@ -294,12 +338,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn launch_peer_commands_reject_conflicting_tmux_flags() {
         let parsed = AiCli::try_parse_from(["patina", "claude", "--tmux", "--no-tmux"]);
         assert!(parsed.is_err());
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn setup_command_no_longer_requires_interface_argument() {
         let parsed = AiCli::try_parse_from(["patina", "setup"]).unwrap();
         match parsed.command {
@@ -309,6 +355,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn refresh_command_accepts_optional_interface_argument() {
         let parsed = AiCli::try_parse_from(["patina", "refresh", "gemini"]).unwrap();
         match parsed.command {
@@ -320,6 +367,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn setup_command_accepts_all_flag() {
         let parsed = AiCli::try_parse_from(["patina", "setup", "--all"]).unwrap();
         match parsed.command {
@@ -332,6 +380,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "legacy-runtime")]
     fn setup_command_rejects_all_with_interface() {
         let parsed = AiCli::try_parse_from(["patina", "setup", "gemini", "--all"]);
         assert!(parsed.is_err());

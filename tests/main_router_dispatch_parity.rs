@@ -21,6 +21,7 @@ fn assert_success(args: &[&str], output: &Output) {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn router_parity_mother_family_status_executes() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let args = ["mother", "status"];
@@ -29,6 +30,7 @@ fn router_parity_mother_family_status_executes() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn router_parity_spec_family_list_executes_json() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let args = ["spec", "list", "--json"];

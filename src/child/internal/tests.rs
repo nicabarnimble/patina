@@ -1,5 +1,6 @@
 use super::*;
 use crate::mother::TaskIntentKind;
+#[cfg(feature = "legacy-runtime")]
 use crate::test_support::with_temp_patina_home;
 use std::io::Write;
 
@@ -693,6 +694,7 @@ fn capabilities_denied() {
 // =====================================================================
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn sanitize_strips_all_repos_for_current_project() {
     let params = r#"{"query":"test","all_repos":true,"limit":5}"#;
     let result = host_support::sanitize_query_params(params, &QueryScope::CurrentProject);
@@ -708,6 +710,7 @@ fn sanitize_strips_all_repos_for_current_project() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn sanitize_strips_repo_for_current_project() {
     let params = r#"{"query":"test","repo":"other-project"}"#;
     let result = host_support::sanitize_query_params(params, &QueryScope::CurrentProject);
@@ -721,6 +724,7 @@ fn sanitize_strips_repo_for_current_project() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn sanitize_strips_all_reserved_keys() {
     let params =
         r#"{"query":"test","all_repos":true,"repo":"x","project_root":"/tmp","db_path":"/hack"}"#;
@@ -737,6 +741,7 @@ fn sanitize_strips_all_reserved_keys() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn sanitize_preserves_all_for_all_repos_scope() {
     let params = r#"{"query":"test","all_repos":true,"repo":"other"}"#;
     let result = host_support::sanitize_query_params(params, &QueryScope::AllRepos);
@@ -746,6 +751,7 @@ fn sanitize_preserves_all_for_all_repos_scope() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn sanitize_handles_invalid_json() {
     let params = "not json";
     let result = host_support::sanitize_query_params(params, &QueryScope::CurrentProject);
@@ -850,37 +856,37 @@ fn check_capabilities_accepts_known_query_kinds() {
 
 #[test]
 fn validate_http_url_valid_https() {
-    let domain = host_support::validate_http_url("https://api.github.com/repos").unwrap();
+    let domain = passive::validate_http_url("https://api.github.com/repos").unwrap();
     assert_eq!(domain, "api.github.com");
 }
 
 #[test]
 fn validate_http_url_valid_https_with_port() {
-    let domain = host_support::validate_http_url("https://api.github.com:443/repos").unwrap();
+    let domain = passive::validate_http_url("https://api.github.com:443/repos").unwrap();
     assert_eq!(domain, "api.github.com");
 }
 
 #[test]
 fn validate_http_url_rejects_http() {
-    let err = host_support::validate_http_url("http://api.github.com/repos").unwrap_err();
+    let err = passive::validate_http_url("http://api.github.com/repos").unwrap_err();
     assert!(err.contains("HTTPS"), "expected HTTPS error, got: {}", err);
 }
 
 #[test]
 fn validate_http_url_rejects_ipv4() {
-    let err = host_support::validate_http_url("https://192.168.1.1/api").unwrap_err();
+    let err = passive::validate_http_url("https://192.168.1.1/api").unwrap_err();
     assert!(err.contains("IP"), "expected IP error, got: {}", err);
 }
 
 #[test]
 fn validate_http_url_rejects_ipv6() {
-    let err = host_support::validate_http_url("https://[::1]/api").unwrap_err();
+    let err = passive::validate_http_url("https://[::1]/api").unwrap_err();
     assert!(err.contains("IP"), "expected IP error, got: {}", err);
 }
 
 #[test]
 fn validate_http_url_rejects_localhost() {
-    let err = host_support::validate_http_url("https://localhost/api").unwrap_err();
+    let err = passive::validate_http_url("https://localhost/api").unwrap_err();
     assert!(
         err.contains("localhost"),
         "expected localhost error, got: {}",
@@ -890,7 +896,7 @@ fn validate_http_url_rejects_localhost() {
 
 #[test]
 fn validate_http_url_rejects_invalid() {
-    let err = host_support::validate_http_url("not-a-url").unwrap_err();
+    let err = passive::validate_http_url("not-a-url").unwrap_err();
     assert!(
         err.contains("invalid"),
         "expected invalid URL error, got: {}",
@@ -1139,7 +1145,7 @@ fn conformance_http_domain_not_in_allowlist_denied() {
         ..Default::default()
     };
     // URL is valid HTTPS with a valid domain
-    let domain = host_support::validate_http_url("https://evil.com/steal").unwrap();
+    let domain = passive::validate_http_url("https://evil.com/steal").unwrap();
     // But domain is NOT in the allowlist
     assert!(
         !grants.http_domains.contains(&domain),
@@ -1151,7 +1157,7 @@ fn conformance_http_domain_not_in_allowlist_denied() {
 /// Maps to: validate_http_url scheme check.
 #[test]
 fn conformance_http_rejects_plaintext() {
-    let err = host_support::validate_http_url("http://api.github.com/repos").unwrap_err();
+    let err = passive::validate_http_url("http://api.github.com/repos").unwrap_err();
     assert!(
         err.contains("HTTPS"),
         "plaintext HTTP should be rejected: {}",
@@ -1163,7 +1169,7 @@ fn conformance_http_rejects_plaintext() {
 /// Maps to: validate_http_url IP check.
 #[test]
 fn conformance_http_rejects_ip_address() {
-    let err = host_support::validate_http_url("https://10.0.0.1/internal").unwrap_err();
+    let err = passive::validate_http_url("https://10.0.0.1/internal").unwrap_err();
     assert!(err.contains("IP"), "IP address should be rejected: {}", err);
 }
 
@@ -1171,7 +1177,7 @@ fn conformance_http_rejects_ip_address() {
 /// Maps to: validate_http_url localhost check.
 #[test]
 fn conformance_http_rejects_localhost() {
-    let err = host_support::validate_http_url("https://localhost:8080/api").unwrap_err();
+    let err = passive::validate_http_url("https://localhost:8080/api").unwrap_err();
     assert!(
         err.contains("localhost"),
         "localhost should be rejected: {}",
@@ -1185,6 +1191,7 @@ fn conformance_http_rejects_localhost() {
 
 // F2: Path traversal in count_layer_files returns 0 (silent reject).
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn count_layer_files_rejects_path_traversal() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().to_path_buf();
@@ -1413,6 +1420,7 @@ child = "cred"
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn manifest_parses_needs_connections_http_into_host_grants() {
     with_temp_patina_home(|home| {
         let connections_dir = home.join("connections");
@@ -1469,6 +1477,7 @@ child = "conn-http"
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn manifest_needs_connections_missing_connection_still_parses() {
     with_temp_patina_home(|_| {
         let f = write_temp_manifest(
@@ -1715,6 +1724,7 @@ fn granted_capabilities_includes_credential_mappings() {
 // =====================================================================
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn leak_check_redacts_secret_in_body() {
     let body = r#"{"token":"ghp_abc123secret","user":"test"}"#;
     let result = host_support::leak_check(body, "github-token", "ghp_abc123secret");
@@ -1731,6 +1741,7 @@ fn leak_check_redacts_secret_in_body() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn leak_check_no_leak_returns_unchanged() {
     let body = r#"{"user":"test","status":"ok"}"#;
     let result = host_support::leak_check(body, "github-token", "ghp_abc123secret");
@@ -1738,6 +1749,7 @@ fn leak_check_no_leak_returns_unchanged() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn leak_check_redacts_multiple_occurrences() {
     let body = "token=ghp_xxx and again ghp_xxx end";
     let result = host_support::leak_check(body, "test-secret", "ghp_xxx");
@@ -1794,6 +1806,7 @@ fn credential_mapping_only_for_mapped_domain() {
 // =====================================================================
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn secret_grant_denied_when_no_file() {
     // With no grants file, all secrets should be denied
     // (the real file may or may not exist, so we test the function logic
@@ -1873,6 +1886,7 @@ secrets = ["github-token", "slack-webhook"]
 // =====================================================================
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn inject_credential_adds_bearer_header() {
     let client = reqwest::blocking::Client::new();
     let builder = client.get("https://api.github.com/user");
@@ -1902,6 +1916,7 @@ fn inject_credential_no_header_without_call() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn http_get_without_mapping_sends_no_auth() {
     // GrantedCapabilities with a domain but no credential mapping
     let grants = GrantedCapabilities {
@@ -1926,6 +1941,7 @@ fn http_get_without_mapping_sends_no_auth() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn http_get_with_mapping_but_no_grant_sends_no_auth() {
     // GrantedCapabilities with a credential mapping but no grants file
     let mut creds = std::collections::HashMap::new();
@@ -1961,6 +1977,7 @@ fn http_get_with_mapping_but_no_grant_sends_no_auth() {
 // =====================================================================
 
 /// Build a cached schema_facts map for testing (simulates load-time parse).
+#[cfg(feature = "legacy-runtime")]
 fn test_schema_facts(
 ) -> std::collections::HashMap<String, std::collections::HashMap<String, String>> {
     let mut github_facts = std::collections::HashMap::new();
@@ -1973,6 +1990,7 @@ fn test_schema_facts(
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn emit_validate_schema_not_available() {
     let schema_facts = std::collections::HashMap::new(); // empty cache
 
@@ -1991,6 +2009,7 @@ fn emit_validate_schema_not_available() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn emit_validate_fact_type_not_found() {
     let schema_facts = test_schema_facts();
 
@@ -2009,6 +2028,7 @@ fn emit_validate_fact_type_not_found() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn emit_validate_invalid_json() {
     let schema_facts = test_schema_facts();
 
@@ -2027,6 +2047,7 @@ fn emit_validate_invalid_json() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn emit_validate_success_returns_event_type() {
     let schema_facts = test_schema_facts();
 
@@ -2041,6 +2062,7 @@ fn emit_validate_success_returns_event_type() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn emit_validate_pull_request_fact_type() {
     let schema_facts = test_schema_facts();
 
@@ -2325,6 +2347,7 @@ mode = "read-write"
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn measure_undeclared_metric_rejected() {
     let declared = std::collections::HashMap::new();
     let result = host_support::record_declared_metric(
@@ -2618,6 +2641,7 @@ fn role_none_skips_validation() {
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn capability_checks_match_for_auto_granted_capability() {
     let f = write_temp_manifest(
         r#"
@@ -2642,6 +2666,7 @@ child = "test"
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn capability_checks_match_for_unknown_capability() {
     let f = write_temp_manifest(
         r#"
@@ -2667,6 +2692,7 @@ child = "test"
 }
 
 #[test]
+#[cfg(feature = "legacy-runtime")]
 fn capability_checks_match_for_host_layer_case() {
     let f = write_temp_manifest(
         r#"

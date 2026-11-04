@@ -1,4 +1,5 @@
 [workspace]
+default-members = ["."]
 members = [".", "mother", "sdk/patina-sdk", "sdk/patina-sdk-legacy", "sdk/patina-child-diagnostics", "sdk/pai-dev", "children/file-system-monitor", "children/content-extractor", "children/schema-enforcer", "children/dedup-filter", "children/parquet-writer", "children/lakehouse-catalog", "children/legacy-typed-bridge", "adapters/fsm-pando", "adapters/ce-pando", "adapters/se-pando", "adapters/df-pando", "adapters/rw-pando", "adapters/lc-pando", "crates/patina-core", "crates/patina-protocol"]
 exclude = ["layer/dust", "sdk/template", "sdk/template/checks/diagnostics", "sdk/template-legacy"]
 resolver = "2"
@@ -14,13 +15,13 @@ keywords = ["ai", "development", "patterns", "context", "embeddings"]
 categories = ["command-line-utilities", "development-tools"]
 
 [features]
-default = ["legacy-runtime", "bundled-doctor", "duckdb-bundled"]
-# Compatibility backend; NIC-82 switches this off by default in the stacked PR.
-legacy-runtime = ["mother-crate/legacy-runtime"]
+default = ["duckdb-bundled"]
+# Explicit compatibility backend. Knowledge and local sessions never require it.
+legacy-runtime = ["mother-crate/legacy-runtime", "bundled-doctor", "dep:wasmtime-wasi-http", "dep:wac-graph"]
 full = ["legacy-runtime", "bundled-doctor"]
 bundled-doctor = []  # Compiled-in doctor fallback — disable for smaller binary (WASM-only doctor)
 duckdb-bundled = ["duckdb/bundled"]  # Compile DuckDB from C++ source (~1.3GB debug). Default on for local dev (no system lib needed). CI always installs prebuilt libduckdb as a system fallback; bundled feature compiles from source regardless but prebuilt ensures non-bundled paths also link.
-dev = []  # Developer commands - not included in user builds
+dev = ["legacy-runtime"]  # Developer commands may manage legacy interfaces
 
 [dependencies]
 # CLI framework
@@ -112,8 +113,8 @@ wasmtime = { version = "=41", default-features = false, features = [
 # WASI support — wasm32-wasip2 components always import basic WASI (stdio, env, clocks)
 # even for pure-computation code. p2 feature = WASIp2 component model.
 wasmtime-wasi = { version = "=41", default-features = false, features = ["p2"] }
-wasmtime-wasi-http = { version = "=41", default-features = false, features = ["default-send-request"] }
-wac-graph = "0.9.0"
+wasmtime-wasi-http = { optional = true, version = "=41", default-features = false, features = ["default-send-request"] }
+wac-graph = { version = "0.9.0", optional = true }
 
 mother-crate = { package = "mother", path = "mother", default-features = false }
 patina-core = { path = "crates/patina-core" }
@@ -142,3 +143,56 @@ path = "src/main.rs"
 [lib]
 name = "patina"
 path = "src/lib.rs"
+
+# Legacy integration targets remain intact and are explicitly run in the full CI lane.
+[[test]]
+name = "child_init_typed_default"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "composition_spike"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "interface_lock"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "mother_single_instance"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "mother_skill_lifecycle_roundtrip"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "mother_skills_registry"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "mother_typed_fixture_conformance"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "pando_artifact_sizes"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "pando_execution"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "pando_parity"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "registry_codex_fixture"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "registry_pi_fixture"
+required-features = ["legacy-runtime"]
+
+[[test]]
+name = "wasm_integration"
+required-features = ["legacy-runtime"]

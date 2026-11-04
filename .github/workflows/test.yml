@@ -1,8 +1,8 @@
 name: Test Pipeline
 
 on:
+  # Validate stacked PRs as well as changes targeting main directly.
   pull_request:
-    branches: [ main, patina ]
   push:
     branches: [ main, patina ]
   workflow_dispatch:
@@ -11,6 +11,60 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Separate target and selected artifacts prevent feature unification masking the default gate.
+  default:
+    name: Default knowledge
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: ${{ runner.temp }}/patina-default-target
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+      CARGO_INCREMENTAL: 0
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      run: timeout 120 rustup show
+    - name: Install DuckDB
+      run: |
+        timeout 120 wget -q https://github.com/duckdb/duckdb/releases/download/v1.5.1/libduckdb-linux-amd64.zip
+        timeout 30 unzip -q libduckdb-linux-amd64.zip -d libduckdb
+        echo "DUCKDB_LIB_DIR=$PWD/libduckdb" >> $GITHUB_ENV
+        echo "DUCKDB_INCLUDE_DIR=$PWD/libduckdb" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$PWD/libduckdb" >> $GITHUB_ENV
+    - name: Cache default build only
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/
+          ~/.cargo/git/db/
+          ${{ env.CARGO_TARGET_DIR }}
+        key: ${{ runner.os }}-cargo-default-${{ hashFiles('**/Cargo.lock') }}
+    - name: Build and audit default source inputs
+      run: |
+        timeout 1800 cargo build --locked --message-format=json > default-build.json
+        timeout 30 python3 resources/scripts/check-default-build.py default-build.json | tee default-depinfo.log
+        timeout 30 cargo tree -p patina-ai -e features > default-features.txt
+    - name: Check default warnings and test compilation
+      run: timeout 1200 cargo clippy --lib --bin patina --test default_runtime_boundary -- -D warnings
+    - name: Default knowledge, parser and isolated session contracts
+      run: |
+        set -o pipefail
+        timeout 1200 cargo test --lib --bin patina --test default_runtime_boundary --test grammar_manifest_conformance --test manifest_authoring_canon 2>&1 | tee default-tests.log
+        timeout 600 cargo test -p mother --lib 2>&1 | tee default-store-tests.log
+    - name: Preserve default gate evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: default-runtime-boundary
+        path: |
+          default-build.json
+          default-depinfo.log
+          default-features.txt
+          default-tests.log
+          default-store-tests.log
+
   # ==================================================================
   # Lint — clippy + structural checks + fmt (~12 min cold)
   # ==================================================================
@@ -28,7 +82,7 @@ jobs:
     # Prebuilt libduckdb installed in all CI jobs as system fallback. Default builds
     # also use duckdb-bundled feature (compiles from C++ source), but prebuilt ensures
     # non-bundled paths link correctly. Keep version aligned with Cargo.toml duckdb crate.
-    # Upgrade runbook: bump URL version in all 4 jobs + crate version in Cargo.toml
+    # Upgrade runbook: bump URL version in all jobs + crate version in Cargo.toml
     # (see version encoding note there). Verify with cargo check --workspace -q.
     - name: Install DuckDB
       run: |
@@ -81,10 +135,10 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: Run clippy
-      run: cargo clippy --workspace -- -D warnings
+      run: cargo clippy --workspace --features full -- -D warnings
 
   # ==================================================================
-  # Test — unit tests + parity/broker + WASM integration (~14 min cold)
+  # Test (full compatibility) — all legacy unit and integration tests remain included
   # ==================================================================
   test:
     name: Test
@@ -156,11 +210,21 @@ jobs:
     - name: Install cargo-nextest
       run: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
 
-    - name: Run unit tests
-      run: cargo nextest run --workspace --lib --profile ci
+    - name: Build full compatibility binary
+      run: timeout 1800 cargo build --locked --features full
+
+    - name: Assert legacy tests are actually included
+      run: |
+        timeout 1200 cargo test --workspace --features full --lib -- --list > full-test-list.txt
+        grep -q 'commands::mother::daemon::tests::daemon_options_default: test' full-test-list.txt
+        grep -q 'child::internal::tests::capability_checks_match_for_auto_granted_capability: test' full-test-list.txt
+        grep -q 'interface::internal::launcher::tests::tmux_decision_force_overrides_auto_only_constraints: test' full-test-list.txt
+
+    - name: Run unit tests (full)
+      run: cargo nextest run --workspace --features full --lib --profile ci
 
     - name: Check Mother single-instance lifecycle
-      run: cargo nextest run --test mother_single_instance --profile ci
+      run: cargo nextest run --features full --test mother_single_instance --profile ci
 
     - name: Check DuckLake wasm parity
       run: bash resources/scripts/check-ducklake-parity.sh
@@ -185,14 +249,14 @@ jobs:
 
     - name: Run WASM integration tests
       if: steps.changes.outputs.wasm == 'true' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-      run: cargo nextest run --test wasm_integration --profile ci
+      run: cargo nextest run --features full --test wasm_integration --profile ci
 
     - name: Run typed composition seam locks
       if: steps.changes.outputs.wasm == 'true' || github.event_name == 'workflow_dispatch'
-      run: cargo nextest run --test composition_spike --test interface_lock --profile ci
+      run: cargo nextest run --features full --test composition_spike --test interface_lock --profile ci
 
   # ==================================================================
-  # Release — build + schema + install (PR/dispatch only, ~20 min cold)
+  # Release — default knowledge build + schema + isolated CI install
   # ==================================================================
   release:
     name: Release
