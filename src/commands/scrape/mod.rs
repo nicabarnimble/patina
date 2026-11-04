@@ -145,6 +145,7 @@ pub fn execute_all() -> Result<()> {
 /// Finds all sources with schedule = "on-scrape" in this project's
 /// sources.toml and runs each one. Errors are logged but don't fail
 /// the scrape — the local scrape data is already committed.
+#[cfg(feature = "legacy-runtime")]
 fn trigger_on_scrape_sources() {
     let project_root = match std::env::current_dir() {
         Ok(p) => p,
@@ -179,6 +180,17 @@ fn trigger_on_scrape_sources() {
                 eprintln!("  {} — error: {}", source.name, e);
             }
         }
+    }
+}
+
+#[cfg(not(feature = "legacy-runtime"))]
+fn trigger_on_scrape_sources() {
+    let root = std::env::current_dir().unwrap_or_default();
+    if patina::paths::project::patina_dir(&root)
+        .join("sources.toml")
+        .exists()
+    {
+        eprintln!("Patina: on-scrape connectors require --features full; local knowledge capture is complete.");
     }
 }
 

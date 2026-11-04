@@ -9,11 +9,11 @@ belief_refs = ["core-verbs-standalone-mother-additive"]
 core_refs = ["layer/core/patina-identity.md", "layer/core/dependable-rust.md"]
 implementation_plan = [
   "[x] PR 1: separate parser logging, runtime client facade, and session/interface metadata dependencies without changing full behavior.",
-  "[ ] PR 2: gate legacy hosting/launching in both crates; keep local data/parser/session functionality; add default/full CI.",
+  "[x] PR 2: gate legacy hosting/launching in both crates; keep local data/parser/session functionality; add default/full CI.",
 ]
 proof_plan = [
-  "[ ] Default build dep-info excludes legacy host/launcher implementation modules.",
-  "[ ] Isolated knowledge and session smoke tests produce expected artifacts without legacy processes, IPC, or tmux effects.",
+  "[x] Default build dep-info excludes legacy host/launcher implementation modules.",
+  "[x] Isolated knowledge and session smoke tests produce expected artifacts without legacy processes, IPC, or tmux effects.",
   "[ ] Full build and existing test/structural/CI suites pass without removing tests.",
   "[ ] Both PR ledgers name exact checks and limitations, and all work remains isolated from production.",
 ]
@@ -22,5 +22,8 @@ closure_evidence = [
   "PR1: cargo build --locked --features full and cargo clippy --workspace -- -D warnings passed in an independent disposable test clone, isolated HOME/PATINA_HOME/target and sandbox denying production state and main-checkout writes.",
   "PR1: cargo test --workspace --lib passed: 1086 tests, 2 pre-existing ignored. Initial worktree run had 3 tag-write failures blocked by sandbox; independent clone rerun passed without relaxing isolation.",
   "PR1: cargo fmt --all -- --check, git diff --check and six structural boundary scripts passed. Default exclusion and behavior proof belong to stacked PR2; CI remains a merge gate.",
+  "PR2: active rustc dep-info audit passed: 209 sources, 49 excluded legacy boundaries; root lib/bin features only default + duckdb-bundled, Mother features empty. Records, parser/pipeline, capture/index/search, beliefs/models remain compiled.",
+  "PR2: default contracts passed: 547 tests, 2 existing ignored, including five real-binary/pipeline boundary fixtures with process and IPC sentinels. Existing session-end export prefix is preserved alongside JSON payloads.",
+  "PR2: default clippy with -D warnings, formatting, whitespace and six structural scripts passed. Full workspace check passed; full build/tests and final CI are still merge gates.",
 ]
-blocked_by = []
+blocked_by = ["Full compatibility validation and both final PR CI runs must pass before merge."]

@@ -4,22 +4,29 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use anyhow::Result;
+#[cfg(feature = "legacy-runtime")]
 use wasmtime::component::Component;
 use wasmtime::{Config, Engine};
 
 use crate::mother::GrantedIngressSource;
 
+#[cfg(feature = "legacy-runtime")]
 mod child;
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod host_support;
 mod passive;
 mod pipeline;
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod typed_conversion;
 
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "legacy-runtime")]
 pub use child::ChildEngine;
+#[cfg(feature = "legacy-runtime")]
 pub use child::FilesystemPreopen;
+#[cfg(feature = "legacy-runtime")]
 pub use child::GUEST_PROJECT_ROOT;
 pub use pipeline::PipelineEngine;
 
@@ -330,7 +337,7 @@ pub fn check_capabilities(manifest: &ChildManifest) -> Result<()> {
         .iter()
         .map(|s| s.as_str())
         .collect();
-    for (domain, mapping) in &manifest.host_secrets {
+    for domain in manifest.host_secrets.keys() {
         if !http_set.contains(domain.as_str()) {
             anyhow::bail!(
                 "child '{}': domain '{}' in host_secrets but not in host_http",
@@ -338,6 +345,9 @@ pub fn check_capabilities(manifest: &ChildManifest) -> Result<()> {
                 domain
             );
         }
+        #[cfg(feature = "legacy-runtime")]
+        let mapping = &manifest.host_secrets[domain];
+        #[cfg(feature = "legacy-runtime")]
         match crate::mother::get_global_secret(&mapping.secret_name) {
             Ok(Some(_)) => {}
             Ok(None) => {
@@ -680,9 +690,11 @@ impl ChildManifest {
                     .collect()
             })
             .unwrap_or_default();
+        #[allow(unused_mut)] // Extended only by the legacy connection resolver.
         let mut host_http_domains: Vec<String> = host_http_domains;
 
         // Parse [capabilities.host_secrets] — credential mappings per domain
+        #[allow(unused_mut)] // Extended only by the legacy connection resolver.
         let mut host_secrets: std::collections::HashMap<String, CredentialMapping> = cap_table
             .and_then(|cap| cap.get("host_secrets"))
             .and_then(|v| v.as_table())
@@ -717,6 +729,11 @@ impl ChildManifest {
             })
             .unwrap_or_default();
 
+        #[cfg(not(feature = "legacy-runtime"))]
+        if needs_connections.is_some_and(|connections| !connections.is_empty()) {
+            anyhow::bail!("connection resolution requires --features full");
+        }
+        #[cfg(feature = "legacy-runtime")]
         if let Some(connections) = needs_connections {
             for (connection_name, value) in connections {
                 let Some(entry) = value.as_table() else {
@@ -1113,6 +1130,7 @@ impl ChildManifest {
     }
 
     /// Load a WASM component from bytes using the shared engine.
+    #[cfg(feature = "legacy-runtime")]
     pub(super) fn load_component(wasm: &[u8]) -> Result<Component> {
         Component::new(wasm_engine(), wasm)
     }

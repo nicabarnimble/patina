@@ -41,6 +41,30 @@ MCT works best inside Patina today, and is designed so the infrastructure can be
 
 ## Quick Start
 
+### Build profiles
+
+Source builds default to **standalone knowledge and local session records**:
+
+```bash
+cargo build                 # capture, index, search, beliefs, models, grammars, sessions
+cargo build --features full # opt-in legacy Mother/Child hosting and guest launcher
+```
+
+`legacy-runtime` is the single backend switch; `full` is its compatibility alias
+(including the bundled doctor). Bare `patina` prints help; PiMux owns guest launching.
+The default build disables `mother`, `serve`, `child`, `slate`, `pando`, `connect`,
+`secrets`, daemon-backed `spec`, `lake`, `doctor`, `interface`, and AI launch/setup
+commands with a `--features full` diagnostic. Legacy code is preserved, not removed.
+Local `setup grammars`, knowledge commands, `ai session new/update/note/end/list`,
+and `ai list/end` remain available. Default session end archives records/tags and
+honors `--commit`, but **does not close tmux**. Interface identity comes from global
+`--interface`, then `PATINA_AI_INTERFACE`, then project configuration—never guest
+executable discovery. Existing installed services and data are not migrated.
+
+Legacy service/extension examples below require a `full` build. See
+[the runtime boundary ledger](layer/slate/work/nic82-sever-runtime/BOUNDARIES.md)
+for retained contracts, caller compatibility, and validation.
+
 ### Install options
 
 Supported targets: macOS 14+ (Apple Silicon) and Linux x86_64.
@@ -82,13 +106,7 @@ patina setup grammars
 # Initialize a project
 patina init .
 
-# Allow an AI interface in this repo
-patina interface add claude
-
-# Start the Mother daemon
-patina mother start
-
-# Build the local knowledge base
+# Build the local knowledge base (no daemon required)
 patina scrape
 patina oxidize
 
@@ -98,9 +116,15 @@ patina assay search "child engine"
 patina context --topic "testing"
 ```
 
-### Mother service runbook (macOS + Linux)
+### Mother service runbook (macOS + Linux, opt-in full build)
+
+These commands are **not** part of the default knowledge workflow.
 
 ```bash
+# Optional legacy interface and daemon setup
+patina interface add claude
+patina mother start
+
 # Install native supervisor backend
 patina mother install
 

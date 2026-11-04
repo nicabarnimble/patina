@@ -6,37 +6,53 @@ license = "MIT"
 description = "Patina Mother daemon crate"
 
 [features]
-default = ["legacy-runtime"]
-legacy-runtime = []
+default = []
+legacy-runtime = [
+    "dep:age",
+    "dep:chacha20poly1305",
+    "dep:hkdf",
+    "dep:rand",
+    "dep:reqwest",
+    "dep:sha2",
+    "dep:httparse",
+    "dep:libc",
+    "dep:zeroize",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:subtle",
+    "dep:security-framework",
+    "dep:security-framework-sys",
+    "dep:core-foundation",
+]
 
 [dependencies]
 anyhow = "1.0"
-age = { version = "0.11", features = ["armor"] }
-chacha20poly1305 = "0.10"
+age = { optional = true, version = "0.11", features = ["armor"] }
+chacha20poly1305 = { version = "0.10", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
-hkdf = "0.12"
+hkdf = { version = "0.12", optional = true }
 rusqlite = { version = "0.32", features = ["bundled", "chrono", "serde_json"] }
-rand = "0.8"
-reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
+rand = { version = "0.8", optional = true }
+reqwest = { optional = true, version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-sha2 = "0.10"
+sha2 = { version = "0.10", optional = true }
 toml = "0.8"
 uuid = { version = "1.10", features = ["v4"] }
-httparse = "1.10"
-libc = "0.2"
-zeroize = "1.8"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["json"] }
-subtle = "2.6"
+httparse = { version = "1.10", optional = true }
+libc = { version = "0.2", optional = true }
+zeroize = { version = "1.8", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { optional = true, version = "0.3", features = ["json"] }
+subtle = { version = "2.6", optional = true }
 patina-protocol = { path = "../crates/patina-protocol" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3.5"
-security-framework-sys = "2.16"
-core-foundation = "0.10"
+security-framework = { version = "3.5", optional = true }
+security-framework-sys = { version = "2.16", optional = true }
+core-foundation = { version = "0.10", optional = true }
 
 [dev-dependencies]
 tempfile = "3.14"

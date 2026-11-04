@@ -10,11 +10,14 @@
 pub mod internal;
 
 use anyhow::Result;
+#[cfg(feature = "legacy-runtime")]
 use patina::mother;
 
 use internal::enrichment::{find_belief_impact, truncate_content};
 use internal::logging::log_scry_query;
-use internal::routing::{execute_graph_routing, execute_via_mother};
+use internal::routing::execute_graph_routing;
+#[cfg(feature = "legacy-runtime")]
+use internal::routing::execute_via_mother;
 use internal::search::{scry_belief, scry_file};
 use internal::semantic::execute_semantic;
 
@@ -79,8 +82,19 @@ impl Default for ScryOptions {
 /// Execute scry command
 pub fn execute(query: Option<&str>, options: ScryOptions) -> Result<()> {
     // Check if we should route to mother
+    #[cfg(feature = "legacy-runtime")]
     if mother::is_configured() {
         return execute_via_mother(query, &options);
+    }
+
+    #[cfg(not(feature = "legacy-runtime"))]
+    if ["PATINA_MOTHER", "PATINA_MOTHER_ADDR", "PATINA_MOTHERSHIP"]
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+    {
+        eprintln!(
+            "Patina: legacy remote routing requires --features full; searching local knowledge."
+        );
     }
 
     println!("🔮 Scry - Searching knowledge base\n");

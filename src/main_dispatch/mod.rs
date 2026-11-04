@@ -1,14 +1,19 @@
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod child;
 #[cfg(feature = "dev")]
 pub(crate) mod dev;
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod mother;
 pub(crate) mod scrape;
+#[cfg(feature = "legacy-runtime")]
 pub(crate) mod spec;
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DispatchFamily {
+    #[cfg(feature = "legacy-runtime")]
     Mother,
+    #[cfg(feature = "legacy-runtime")]
     Spec,
     Scrape,
     Measure,
@@ -19,9 +24,11 @@ pub(crate) enum DispatchFamily {
 #[cfg(test)]
 pub(crate) fn classify(command: Option<&crate::Commands>) -> DispatchFamily {
     match command {
+        #[cfg(feature = "legacy-runtime")]
         Some(crate::Commands::Mother { .. }) | Some(crate::Commands::Serve { .. }) => {
             DispatchFamily::Mother
         }
+        #[cfg(feature = "legacy-runtime")]
         Some(crate::Commands::Spec { .. }) => DispatchFamily::Spec,
         Some(
             crate::Commands::Scrape { .. }
@@ -44,12 +51,14 @@ mod tests {
     use super::{classify, DispatchFamily};
     use clap::Parser;
 
+    #[cfg(feature = "legacy-runtime")]
     #[test]
     fn routes_mother_family() {
         let cli = crate::Cli::try_parse_from(["patina", "mother", "status"]).expect("parse");
         assert_eq!(classify(cli.command.as_ref()), DispatchFamily::Mother);
     }
 
+    #[cfg(feature = "legacy-runtime")]
     #[test]
     fn routes_spec_family() {
         let cli = crate::Cli::try_parse_from(["patina", "spec", "list"]).expect("parse");
