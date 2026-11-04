@@ -1,4 +1,5 @@
 mod internal;
+mod legacy_session;
 pub(crate) mod surface;
 
 use anyhow::Result;

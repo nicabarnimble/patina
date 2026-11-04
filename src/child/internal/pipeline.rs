@@ -55,7 +55,7 @@ mod pipeline_bindings {
             } else {
                 format!("{}:{}", self.plugin_name, context)
             };
-            super::super::host_support::log(&source, level_str, &message);
+            super::super::passive::log(&source, level_str, &message);
         }
     }
 }

@@ -9,7 +9,7 @@ use std::path::Path;
 use super::paths;
 
 /// Version of the Claude interface - increment when scripts/commands change
-pub const CLAUDE_INTERFACE_VERSION: &str = "0.7.0";
+pub use crate::interface::CLAUDE_INTERFACE_VERSION;
 
 /// Changelog for interface versions
 const VERSION_CHANGES: &[(&str, &[&str])] = &[

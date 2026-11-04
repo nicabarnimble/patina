@@ -11,6 +11,7 @@ use crate::mother::GrantedIngressSource;
 
 mod child;
 pub(crate) mod host_support;
+mod passive;
 mod pipeline;
 pub(crate) mod typed_conversion;
 
@@ -312,7 +313,7 @@ pub fn check_capabilities(manifest: &ChildManifest) -> Result<()> {
         }
 
         for source in manifest.ingress_sources.values() {
-            host_support::validate_http_url(&source.endpoint).map_err(|error| {
+            passive::validate_http_url(&source.endpoint).map_err(|error| {
                 anyhow::anyhow!(
                     "child '{}' declares invalid ingress source '{}' endpoint '{}': {}",
                     manifest.name,
@@ -1127,7 +1128,7 @@ impl ChildManifest {
         let http_domains = self.host_http_domains.iter().cloned().collect();
         let mut http_domains: std::collections::HashSet<String> = http_domains;
         for source in self.ingress_sources.values() {
-            if let Ok(domain) = self::host_support::validate_http_url(&source.endpoint) {
+            if let Ok(domain) = self::passive::validate_http_url(&source.endpoint) {
                 http_domains.insert(domain);
             }
         }

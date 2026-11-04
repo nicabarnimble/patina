@@ -14,14 +14,7 @@ use super::{
     CredentialMapping, GrantedCapabilities, InjectionLocation, QueryDispatchFn, QueryScope,
 };
 
-// =========================================================================
-// Log host support
-// =========================================================================
-
-/// Shared log implementation — formats and emits child log messages.
-pub(super) fn log(plugin_name: &str, level_str: &str, message: &str) {
-    eprintln!("[child:{}] {}: {}", plugin_name, level_str, message);
-}
+// Parser logging lives in passive.rs and does not depend on host effects.
 
 // =========================================================================
 // Layer host support
@@ -217,31 +210,7 @@ pub(crate) fn build_http_client() -> anyhow::Result<reqwest::blocking::Client> {
 }
 
 /// Validate and parse an HTTP URL for domain-allowlisted access.
-pub(crate) fn validate_http_url(url: &str) -> Result<String, String> {
-    let parsed = reqwest::Url::parse(url).map_err(|e| format!("invalid URL: {}", e))?;
-
-    if parsed.scheme() != "https" {
-        return Err(format!("only HTTPS allowed, got '{}'", parsed.scheme()));
-    }
-
-    let host = parsed
-        .host_str()
-        .ok_or_else(|| "no host in URL".to_string())?;
-
-    if host == "localhost" {
-        return Err("localhost not allowed".to_string());
-    }
-
-    let bare_host = host
-        .strip_prefix('[')
-        .and_then(|h| h.strip_suffix(']'))
-        .unwrap_or(host);
-    if bare_host.parse::<std::net::IpAddr>().is_ok() {
-        return Err("IP addresses not allowed".to_string());
-    }
-
-    Ok(bare_host.to_string())
-}
+pub(crate) use super::passive::validate_http_url;
 
 /// Result of an HTTP operation — plain types for cross-world portability.
 #[allow(dead_code)]

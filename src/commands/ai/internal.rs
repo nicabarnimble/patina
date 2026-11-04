@@ -3,8 +3,8 @@ use serde_json::json;
 use std::fs;
 use std::path::Path;
 
+use super::legacy_session::{resolve_native_session_interface, teardown_tmux_lane_best_effort};
 use patina::git;
-use patina::interface::interface as load_interface;
 use patina::session::{self, ArchiveSessionRequest, SessionManager};
 
 use super::AiSessionCommands;
@@ -283,32 +283,6 @@ fn append_outcome_note(markdown: &str, note: &str) -> String {
     format!("{markdown}\n\n## Outcome\n{note}\n")
 }
 
-fn teardown_tmux_lane_best_effort(
-    project_root: &Path,
-    interface_name: &str,
-    session_target: Option<&str>,
-) {
-    match patina::interface::teardown_interface_tmux_lane(
-        project_root,
-        interface_name,
-        session_target,
-    ) {
-        Ok(true) => {
-            eprintln!(
-                "Patina: closed tmux lane for interface '{}' after session end.",
-                interface_name
-            );
-        }
-        Ok(false) => {}
-        Err(error) => {
-            eprintln!(
-                "Patina: warning: failed to close tmux lane for interface '{}': {}",
-                interface_name, error
-            );
-        }
-    }
-}
-
 fn record_ai_session_ended(
     project_root: &Path,
     handle: &session::LiveSessionHandle,
@@ -334,28 +308,7 @@ fn record_ai_session_ended(
     Ok(())
 }
 
-fn resolve_native_session_interface(
-    project_root: &Path,
-    interface: Option<&str>,
-) -> Result<String> {
-    let resolved = interface
-        .map(ToOwned::to_owned)
-        .or_else(current_interface_name)
-        .unwrap_or(patina::interface::resolve_preferred_ai_interface(
-            project_root,
-        )?);
-    patina::interface::ensure_ai_project_config(project_root, None)?;
-    let _ = load_interface(&resolved).map_err(|_| {
-        anyhow::anyhow!(
-            "Unsupported Patina AI interface '{}'. Choose one of: {}.",
-            resolved,
-            patina::interface::supported_ai_interfaces().join(", ")
-        )
-    })?;
-    Ok(resolved)
-}
-
-fn current_interface_name() -> Option<String> {
+pub(super) fn current_interface_name() -> Option<String> {
     std::env::var("PATINA_AI_INTERFACE")
         .ok()
         .filter(|value| !value.is_empty())

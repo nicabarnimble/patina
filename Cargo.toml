@@ -14,7 +14,10 @@ keywords = ["ai", "development", "patterns", "context", "embeddings"]
 categories = ["command-line-utilities", "development-tools"]
 
 [features]
-default = ["bundled-doctor", "duckdb-bundled"]
+default = ["legacy-runtime", "bundled-doctor", "duckdb-bundled"]
+# Compatibility backend; NIC-82 switches this off by default in the stacked PR.
+legacy-runtime = ["mother-crate/legacy-runtime"]
+full = ["legacy-runtime", "bundled-doctor"]
 bundled-doctor = []  # Compiled-in doctor fallback — disable for smaller binary (WASM-only doctor)
 duckdb-bundled = ["duckdb/bundled"]  # Compile DuckDB from C++ source (~1.3GB debug). Default on for local dev (no system lib needed). CI always installs prebuilt libduckdb as a system fallback; bundled feature compiles from source regardless but prebuilt ensures non-bundled paths also link.
 dev = []  # Developer commands - not included in user builds
@@ -112,7 +115,7 @@ wasmtime-wasi = { version = "=41", default-features = false, features = ["p2"] }
 wasmtime-wasi-http = { version = "=41", default-features = false, features = ["default-send-request"] }
 wac-graph = "0.9.0"
 
-mother-crate = { package = "mother", path = "mother" }
+mother-crate = { package = "mother", path = "mother", default-features = false }
 patina-core = { path = "crates/patina-core" }
 patina-sdk = { path = "sdk/patina-sdk", default-features = false, features = ["manifest"] }
 patina-protocol = { path = "crates/patina-protocol" }
